@@ -79,6 +79,30 @@ const createSession = function(id, description) {
 
   client.initialize();
 
+  client.on('message', msg => {
+    if (msg.body == '!ping') {
+      msg.reply('pong');
+    } else if (msg.body == 'good morning') {
+      msg.reply('selamat pagi');
+    } else if (msg.body == '!groups') {
+      client.getChats().then(chats => {
+        const groups = chats.filter(chat => chat.isGroup);
+  
+        if (groups.length == 0) {
+          msg.reply('You have no group yet.');
+        } else {
+          let replyMsg = '*YOUR GROUPS*\n\n';
+          groups.forEach((group, i) => {
+            replyMsg += `ID: ${group.id._serialized}\nName: ${group.name}\n\n`;
+          });
+          replyMsg += '_You can use the group id to send a message to the group._'
+          msg.reply(replyMsg);
+        }
+      });
+    }
+  });
+  
+
   client.on('qr', (qr) => {
     console.log('QR RECEIVED', qr);
     qrcode.toDataURL(qr, (err, url) => {
@@ -229,6 +253,40 @@ app.post('/send-message', (req, res) => {
   const client = sessions.find(sess => sess.id == sender).client;
 
   client.sendMessage(number, message).then(response => {
+    res.status(200).json({
+      status: true,
+      response: response
+    });
+  }).catch(err => {
+    res.status(500).json({
+      status: false,
+      response: err
+    });
+  });
+});
+
+// Send media
+app.post('/send-media', async (req, res) => {
+  const number = phoneNumberFormatter(req.body.number);
+  const caption = req.body.caption;
+  const fileUrl = req.body.file;
+
+  // const media = MessageMedia.fromFilePath('./image-example.png');
+  // const file = req.files.file;
+  // const media = new MessageMedia(file.mimetype, file.data.toString('base64'), file.name);
+  let mimetype;
+  const attachment = await axios.get(fileUrl, {
+    responseType: 'arraybuffer'
+  }).then(response => {
+    mimetype = response.headers['content-type'];
+    return response.data.toString('base64');
+  });
+
+  const media = new MessageMedia(mimetype, attachment, 'Media');
+
+  client.sendMessage(number, media, {
+    caption: caption
+  }).then(response => {
     res.status(200).json({
       status: true,
       response: response
