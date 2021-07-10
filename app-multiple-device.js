@@ -267,6 +267,7 @@ app.post('/send-message', (req, res) => {
 
 // Send media
 app.post('/send-media', async (req, res) => {
+  const sender = req.body.sender;
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;
   const fileUrl = req.body.file;
@@ -283,6 +284,8 @@ app.post('/send-media', async (req, res) => {
   });
 
   const media = new MessageMedia(mimetype, attachment, 'Media');
+  const client = sessions.find(sess => sess.id == sender).client;
+
 
   client.sendMessage(number, media, {
     caption: caption
