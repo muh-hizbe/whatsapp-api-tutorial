@@ -245,12 +245,26 @@ io.on('connection', function(socket) {
 // });
 
 // Send message
-app.post('/send-message', (req, res) => {
+app.post('/send-message',async (req, res) => {
   const sender = req.body.sender;
   const number = phoneNumberFormatter(req.body.number);
   const message = req.body.message;
 
   const client = sessions.find(sess => sess.id == sender).client;
+
+  const checkRegisteredNumber = async function(number) {
+    const isRegistered = await client.isRegisteredUser(number);
+    return isRegistered;
+  }
+
+  const isRegisteredNumber = await checkRegisteredNumber(number);
+
+  if (!isRegisteredNumber) {
+    return res.status(422).json({
+      status: false,
+      message: 'The number is not registered'
+    });
+  }
 
   client.sendMessage(number, message).then(response => {
     res.status(200).json({
@@ -285,6 +299,21 @@ app.post('/send-media', async (req, res) => {
 
   const media = new MessageMedia(mimetype, attachment, 'Media');
   const client = sessions.find(sess => sess.id == sender).client;
+
+  const checkRegisteredNumber = async function(number) {
+    const isRegistered = await client.isRegisteredUser(number);
+    return isRegistered;
+  }
+
+  const isRegisteredNumber = await checkRegisteredNumber(number);
+
+  if (!isRegisteredNumber) {
+    return res.status(422).json({
+      status: false,
+      message: 'The number is not registered'
+    });
+  }
+
 
 
   client.sendMessage(number, media, {
