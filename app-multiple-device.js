@@ -338,6 +338,15 @@ app.post('/send-message',async (req, res) => {
 
 // Send media
 app.post('/send-media', async (req, res) => {
+  const token = req.header('x-token');
+
+  if (token !== SECRET_TOKEN) {
+    return res.status(401).json({
+      status: false,
+      message: 'Unauthenticated'
+    })  
+  }
+  
   const sender = req.body.sender;
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;
