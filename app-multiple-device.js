@@ -54,130 +54,134 @@ const getSessionsFile = function() {
 }
 
 const createSession = function(id, description, token) {
-  if (token === SECRET_TOKEN) {
-    console.log('Creating session: ' + id);
-    const SESSION_FILE_PATH = `./whatsapp-session-${id}.json`;
-    let sessionCfg;
-    if (fs.existsSync(SESSION_FILE_PATH)) {
-      sessionCfg = require(SESSION_FILE_PATH);
-    }
+  console.log('Creating session: ' + id);
+  const SESSION_FILE_PATH = `./whatsapp-session-${id}.json`;
+  let sessionCfg;
+  if (fs.existsSync(SESSION_FILE_PATH)) {
+    sessionCfg = require(SESSION_FILE_PATH);
+  }
 
-    const client = new Client({
-      restartOnAuthFail: true,
-      puppeteer: {
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process', // <- this one doesn't works in Windows
-          '--disable-gpu'
-        ],
-      },
-      session: sessionCfg
-    });
+  const client = new Client({
+    restartOnAuthFail: true,
+    puppeteer: {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process', // <- this one doesn't works in Windows
+        '--disable-gpu'
+      ],
+    },
+    session: sessionCfg
+  });
 
-    client.initialize();
+  client.initialize();
 
-    client.on('message', msg => {
-      if (msg.body == '!ping') {
-        msg.reply('pong');
-      } else if (msg.body == 'good morning') {
-        msg.reply('selamat pagi');
-      } else if (msg.body == '!groups') {
-        client.getChats().then(chats => {
-          const groups = chats.filter(chat => chat.isGroup);
-    
-          if (groups.length == 0) {
-            msg.reply('You have no group yet.');
-          } else {
-            let replyMsg = '*YOUR GROUPS*\n\n';
-            groups.forEach((group, i) => {
-              replyMsg += `ID: ${group.id._serialized}\nName: ${group.name}\n\n`;
-            });
-            replyMsg += '_You can use the group id to send a message to the group._'
-            msg.reply(replyMsg);
-          }
-        });
-      }
-    });
-    
-
-    client.on('qr', (qr) => {
-      console.log('QR RECEIVED', qr);
-      qrcode.toDataURL(qr, (err, url) => {
-        io.emit('qr', { id: id, src: url });
-        io.emit('message', { id: id, text: 'QR Code received, scan please!' });
-      });
-    });
-
-    client.on('ready', () => {
-      io.emit('ready', { id: id });
-      io.emit('message', { id: id, text: 'Whatsapp is ready!' });
-
-      const savedSessions = getSessionsFile();
-      const sessionIndex = savedSessions.findIndex(sess => sess.id == id);
-      savedSessions[sessionIndex].ready = true;
-      setSessionsFile(savedSessions);
-    });
-
-    client.on('authenticated', (session) => {
-      io.emit('authenticated', { id: id });
-      io.emit('message', { id: id, text: 'Whatsapp is authenticated!' });
-      sessionCfg = session;
-      fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function(err) {
-        if (err) {
-          console.error(err);
+  client.on('message', msg => {
+    if (msg.body == '!ping') {
+      msg.reply('pong');
+    } else if (msg.body == 'good morning') {
+      msg.reply('selamat pagi');
+    } else if (msg.body == '!groups') {
+      client.getChats().then(chats => {
+        const groups = chats.filter(chat => chat.isGroup);
+  
+        if (groups.length == 0) {
+          msg.reply('You have no group yet.');
+        } else {
+          let replyMsg = '*YOUR GROUPS*\n\n';
+          groups.forEach((group, i) => {
+            replyMsg += `ID: ${group.id._serialized}\nName: ${group.name}\n\n`;
+          });
+          replyMsg += '_You can use the group id to send a message to the group._'
+          msg.reply(replyMsg);
         }
       });
+    }
+  });
+  
+
+  client.on('qr', (qr) => {
+    console.log('QR RECEIVED', qr);
+    qrcode.toDataURL(qr, (err, url) => {
+      io.emit('qr', { id: id, src: url });
+      io.emit('message', { id: id, text: 'QR Code received, scan please!' });
     });
+  });
 
-    client.on('auth_failure', function(session) {
-      io.emit('message', { id: id, text: 'Auth failure, restarting...' });
-    });
+  client.on('ready', () => {
+    io.emit('ready', { id: id });
+    io.emit('message', { id: id, text: 'Whatsapp is ready!' });
 
-    client.on('disconnected', (reason) => {
-      io.emit('message', { id: id, text: 'Whatsapp is disconnected!' });
-      fs.unlinkSync(SESSION_FILE_PATH, function(err) {
-          if(err) return console.log(err);
-          console.log('Session file deleted!');
-      });
-      client.destroy();
-      client.initialize();
-
-      // Menghapus pada file sessions
-      const savedSessions = getSessionsFile();
-      const sessionIndex = savedSessions.findIndex(sess => sess.id == id);
-      savedSessions.splice(sessionIndex, 1);
-      setSessionsFile(savedSessions);
-
-      io.emit('remove-session', id);
-    });
-
-    // Tambahkan client ke sessions
-    sessions.push({
-      id: id,
-      description: description,
-      client: client
-    });
-
-    // Menambahkan session ke file
     const savedSessions = getSessionsFile();
     const sessionIndex = savedSessions.findIndex(sess => sess.id == id);
+    savedSessions[sessionIndex].ready = true;
+    setSessionsFile(savedSessions);
+  });
 
-    if (sessionIndex == -1) {
-      savedSessions.push({
-        id: id,
-        description: description,
-        ready: false,
+  client.on('authenticated', (session) => {
+    io.emit('authenticated', { id: id });
+    io.emit('message', { id: id, text: 'Whatsapp is authenticated!' });
+    sessionCfg = session;
+    fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function(err) {
+      if (err) {
+        console.error(err);
+      }
+    });
+  });
+
+  client.on('auth_failure', function(session) {
+    io.emit('message', { id: id, text: 'Auth failure, restarting...' });
+  });
+
+  client.on('disconnected', (reason) => {
+    io.emit('message', { id: id, text: 'Whatsapp is disconnected!' });
+  
+    try {
+      fs.unlinkSync(SESSION_FILE_PATH, function(err) {
+        if(err) {
+          console.log(err)
+        };
+        console.log('Session file deleted!');
       });
-      setSessionsFile(savedSessions);
+    } catch (error) {
+      console.log(`gagal menghapus file whatsapp-session-${id}.json`);
     }
-  } else {
-    console.log('Invalid token');
+    
+    client.destroy();
+    client.initialize();
+
+    // Menghapus pada file sessions
+    const savedSessions = getSessionsFile();
+    const sessionIndex = savedSessions.findIndex(sess => sess.id == id);
+    savedSessions.splice(sessionIndex, 1);
+    setSessionsFile(savedSessions);
+
+    io.emit('remove-session', id);
+  });
+
+  // Tambahkan client ke sessions
+  sessions.push({
+    id: id,
+    description: description,
+    client: client
+  });
+
+  // Menambahkan session ke file
+  const savedSessions = getSessionsFile();
+  const sessionIndex = savedSessions.findIndex(sess => sess.id == id);
+
+  if (sessionIndex == -1) {
+    savedSessions.push({
+      id: id,
+      description: description,
+      ready: false,
+    });
+    setSessionsFile(savedSessions);
   }
 }
 
@@ -307,7 +311,8 @@ app.post('/send-message',async (req, res) => {
   const number = phoneNumberFormatter(req.body.number);
   const message = req.body.message;
 
-  const client = sessions.find(sess => sess.id == sender).client;
+  const client = await sessions.find(sess => sess.id === sender).client;
+  console.log(client);
 
   const checkRegisteredNumber = async function(number) {
     const isRegistered = await client.isRegisteredUser(number);
@@ -346,7 +351,7 @@ app.post('/send-media', async (req, res) => {
       message: 'Unauthenticated'
     })  
   }
-  
+
   const sender = req.body.sender;
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;

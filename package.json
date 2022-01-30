@@ -23,7 +23,7 @@
     "http": "0.0.1-security",
     "qrcode": "^1.4.4",
     "socket.io": "2.3.0",
-    "whatsapp-web.js": "latest"
+    "whatsapp-web.js": "^1.15.3"
   },
   "engines": {
     "node": ">=v14.17.1"
