@@ -12,6 +12,8 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
+const SECRET_TOKEN = 'fkam_service';
+
 app.use(express.json());
 app.use(express.urlencoded({
   extended: true
@@ -51,7 +53,7 @@ const getSessionsFile = function() {
   return JSON.parse(fs.readFileSync(SESSIONS_FILE));
 }
 
-const createSession = function(id, description) {
+const createSession = function(id, description, token) {
   console.log('Creating session: ' + id);
   const SESSION_FILE_PATH = `./whatsapp-session-${id}.json`;
   let sessionCfg;
@@ -138,10 +140,18 @@ const createSession = function(id, description) {
 
   client.on('disconnected', (reason) => {
     io.emit('message', { id: id, text: 'Whatsapp is disconnected!' });
-    fs.unlinkSync(SESSION_FILE_PATH, function(err) {
-        if(err) return console.log(err);
+  
+    try {
+      fs.unlinkSync(SESSION_FILE_PATH, function(err) {
+        if(err) {
+          console.log(err)
+        };
         console.log('Session file deleted!');
-    });
+      });
+    } catch (error) {
+      console.log(`gagal menghapus file whatsapp-session-${id}.json`);
+    }
+    
     client.destroy();
     client.initialize();
 
@@ -175,6 +185,34 @@ const createSession = function(id, description) {
   }
 }
 
+const removeSession = function(id, token) {
+  if (token === SECRET_TOKEN) {
+    const SESSION_FILE_PATH = `./whatsapp-session-${id}.json`;
+    try {
+      fs.unlinkSync(SESSION_FILE_PATH, function(err) {
+        if(err) {
+          console.log(err)
+        };
+        console.log('Session file deleted!');
+      });
+    } catch (error) {
+      console.log(`gagal menghapus file whatsapp-session-${id}.json`);
+    }
+    
+
+    // Menghapus pada file sessions
+    const savedSessions = getSessionsFile();
+    const sessionIndex = savedSessions.findIndex(sess => sess.id == id);
+    savedSessions.splice(sessionIndex, 1);
+    setSessionsFile(savedSessions);
+
+    io.emit('remove-session', {id: id, status: true, message: 'success'});
+  } else {
+    io.emit('remove-session', {id: id, status: false, message: 'failed'});
+    console.log('Invalid token nih');
+  }
+}
+
 const init = function(socket) {
   const savedSessions = getSessionsFile();
 
@@ -197,8 +235,22 @@ io.on('connection', function(socket) {
 
   socket.on('create-session', function(data) {
     console.log('Create session: ' + data.id);
-    createSession(data.id, data.description);
+    if (data.token === SECRET_TOKEN) {
+      createSession(data.id, data.description, data.token); 
+    } else {
+      console.log('Invalid create session');
+    }
   });
+
+  socket.on('delete-session', function(data) {
+    console.log('Delete session: ' + data.id);
+    if (data.token === SECRET_TOKEN) {
+      removeSession(data.id, data.token); 
+    } else {
+      io.emit('remove-session', {id: data.id, status: false, message: 'failed'});
+      console.log('invalid delete session');
+    }
+  })
 });
 
 // io.on('connection', function(socket) {
@@ -246,11 +298,21 @@ io.on('connection', function(socket) {
 
 // Send message
 app.post('/send-message',async (req, res) => {
+  const token = req.header('x-token');
+
+  if (token !== SECRET_TOKEN) {
+    return res.status(401).json({
+      status: false,
+      message: 'Unauthenticated'
+    })  
+  }
+
   const sender = req.body.sender;
   const number = phoneNumberFormatter(req.body.number);
   const message = req.body.message;
 
-  const client = sessions.find(sess => sess.id == sender).client;
+  const client = await sessions.find(sess => sess.id === sender).client;
+  console.log(client);
 
   const checkRegisteredNumber = async function(number) {
     const isRegistered = await client.isRegisteredUser(number);
@@ -281,6 +343,15 @@ app.post('/send-message',async (req, res) => {
 
 // Send media
 app.post('/send-media', async (req, res) => {
+  const token = req.header('x-token');
+
+  if (token !== SECRET_TOKEN) {
+    return res.status(401).json({
+      status: false,
+      message: 'Unauthenticated'
+    })  
+  }
+
   const sender = req.body.sender;
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;
