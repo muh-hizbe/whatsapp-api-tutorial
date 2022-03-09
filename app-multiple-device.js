@@ -61,8 +61,15 @@ const createSession = function(id, description, token) {
     sessionCfg = require(SESSION_FILE_PATH);
   }
 
+  const authStrategy = new LegacySessionAuth({
+      session: sessionCfg,
+      restartOnAuthFail: false
+  })
+
   const client = new Client({
-    restartOnAuthFail: true,
+    authStrategy: authStrategy,
+    // restartOnAuthFail: true,
+    // session: sessionCfg,
     puppeteer: {
       headless: true,
       args: [
@@ -76,7 +83,6 @@ const createSession = function(id, description, token) {
         '--disable-gpu'
       ],
     },
-    session: sessionCfg
   });
 
   client.initialize();
