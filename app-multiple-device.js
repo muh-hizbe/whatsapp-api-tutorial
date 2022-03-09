@@ -227,7 +227,7 @@ const init = function(socket) {
       socket.emit('init', savedSessions);
     } else {
       savedSessions.forEach(sess => {
-        createSession(sess.id, sess.description);
+        createSession(sess.id, sess.description, sess.token);
       });
     }
   }
@@ -347,7 +347,7 @@ app.post('/send-message',async (req, res) => {
   });
 });
 
-// // Send message
+// // Send message bc
 // app.post('/send-message-bc',async (req, res) => {
 //   const token = req.header('x-token');
 
