@@ -68,8 +68,8 @@ const createSession = function(id, description, token) {
 
   const client = new Client({
     authStrategy: authStrategy,
-    // restartOnAuthFail: true,
-    // session: sessionCfg,
+    restartOnAuthFail: true,
+    session: sessionCfg,
     puppeteer: {
       headless: true,
       args: [
