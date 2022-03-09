@@ -312,7 +312,7 @@ app.post('/send-message',async (req, res) => {
   const message = req.body.message;
 
   const client = await sessions.find(sess => sess.id === sender).client;
-  console.log(client);
+  console.log("client object => ", client);
 
   const checkRegisteredNumber = async function(number) {
     const isRegistered = await client.isRegisteredUser(number);
@@ -340,6 +340,66 @@ app.post('/send-message',async (req, res) => {
     });
   });
 });
+
+// // Send message
+// app.post('/send-message-bc',async (req, res) => {
+//   const token = req.header('x-token');
+
+//   if (token !== SECRET_TOKEN) {
+//     return res.status(401).json({
+//       status: false,
+//       message: 'Unauthenticated'
+//     })  
+//   }
+
+//   const sender = req.body.sender;
+//   // const number = phoneNumberFormatter(req.body.number);
+//   // const message = req.body.message;
+//   const data = req.body.data;
+
+//   const client = await sessions.find(sess => sess.id === sender).client;
+
+//   const checkRegisteredNumber = async function(number) {
+//     const isRegistered = await client.isRegisteredUser(number);
+//     return isRegistered;
+//   }
+
+//   let success = 0;
+//   let fail = 0;
+//   let numberNotRegister = 0;
+
+//   data.forEach(async (item) => {
+//     const number = phoneNumberFormatter(item.number)
+//     const isRegisteredNumber = await checkRegisteredNumber(number);
+  
+//     if (!isRegisteredNumber) {
+//       numberNotRegister++;
+//     } else {
+//       client.sendMessage(number, item.message).then(response => {
+//         success++;
+//         // res.status(200).json({
+//         //   status: true,
+//         //   response: response
+//         // });
+//       }).catch(err => {
+//         fail++;
+//         // res.status(500).json({
+//         //   status: false,
+//         //   response: err
+//         // });
+//       });
+//     }
+//   });
+
+//   return res.status(200).json({
+//     status: true,
+//     response: {
+//       success: success,
+//       fail: fail,
+//       numberNotRegister: numberNotRegister
+//     }
+//   });
+// });
 
 // Send media
 app.post('/send-media', async (req, res) => {
