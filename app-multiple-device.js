@@ -314,7 +314,7 @@ app.post('/send-message',async (req, res) => {
   }
 
   const sender = req.body.sender;
-  const number = phoneNumberFormatter(req.body.number);
+  const number = await phoneNumberFormatter(req.body.number);
   const message = req.body.message;
 
   const client = await sessions.find(sess => sess.id === sender).client;
