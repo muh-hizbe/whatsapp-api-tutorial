@@ -1,4 +1,4 @@
-const { Client, MessageMedia, LegacySessionAuth } = require('whatsapp-web.js');
+const { Client, MessageMedia, LegacySessionAuth, LocalAuth } = require('whatsapp-web.js');
 const express = require('express');
 const socketIO = require('socket.io');
 const qrcode = require('qrcode');
@@ -61,33 +61,10 @@ const createSession = function (id, description, token) {
     sessionCfg = require(SESSION_FILE_PATH);
   }
 
-  const { Client, LocalAuth } = require('whatsapp-web.js');
-  const client = new Client({
-    authStrategy: new LocalAuth(),
-    restartOnAuthFail: true,
-    session: sessionCfg,
-    puppeteer: {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process', // <- this one doesn't works in Windows
-        '--disable-gpu'
-      ],
-    },
-  });
-
-  // const authStrategy = new LegacySessionAuth({
-  //   session: sessionCfg,
-  //   restartOnAuthFail: false
-  // })
-
   // const client = new Client({
-  //   authStrategy: authStrategy,
+  //   authStrategy: new LocalAuth({
+  //     dataPath: 'whatsapp-sessions.json'
+  //   }),
   //   restartOnAuthFail: true,
   //   session: sessionCfg,
   //   puppeteer: {
@@ -104,6 +81,30 @@ const createSession = function (id, description, token) {
   //     ],
   //   },
   // });
+
+  const authStrategy = new LegacySessionAuth({
+    session: sessionCfg,
+    restartOnAuthFail: false
+  })
+
+  const client = new Client({
+    authStrategy: authStrategy,
+    restartOnAuthFail: true,
+    session: sessionCfg,
+    puppeteer: {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process', // <- this one doesn't works in Windows
+        '--disable-gpu'
+      ],
+    },
+  });
 
   client.initialize();
 
