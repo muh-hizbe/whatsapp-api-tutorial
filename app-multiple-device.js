@@ -28,12 +28,12 @@ app.get('/', (req, res) => {
 const sessions = [];
 const SESSIONS_FILE = './whatsapp-sessions.json';
 
-const createSessionsFileIfNotExists = function() {
+const createSessionsFileIfNotExists = function () {
   if (!fs.existsSync(SESSIONS_FILE)) {
     try {
       fs.writeFileSync(SESSIONS_FILE, JSON.stringify([]));
       console.log('Sessions file created successfully.');
-    } catch(err) {
+    } catch (err) {
       console.log('Failed to create sessions file: ', err);
     }
   }
@@ -41,19 +41,19 @@ const createSessionsFileIfNotExists = function() {
 
 createSessionsFileIfNotExists();
 
-const setSessionsFile = function(sessions) {
-  fs.writeFile(SESSIONS_FILE, JSON.stringify(sessions), function(err) {
+const setSessionsFile = function (sessions) {
+  fs.writeFile(SESSIONS_FILE, JSON.stringify(sessions), function (err) {
     if (err) {
       console.log(err);
     }
   });
 }
 
-const getSessionsFile = function() {
+const getSessionsFile = function () {
   return JSON.parse(fs.readFileSync(SESSIONS_FILE));
 }
 
-const createSession = function(id, description, token) {
+const createSession = function (id, description, token) {
   console.log('Creating session: ' + id);
   const SESSION_FILE_PATH = `./whatsapp-session-${id}.json`;
   let sessionCfg;
@@ -61,13 +61,9 @@ const createSession = function(id, description, token) {
     sessionCfg = require(SESSION_FILE_PATH);
   }
 
-  const authStrategy = new LegacySessionAuth({
-      session: sessionCfg,
-      restartOnAuthFail: false
-  })
-
+  const { Client, LocalAuth } = require('whatsapp-web.js');
   const client = new Client({
-    authStrategy: authStrategy,
+    authStrategy: new LocalAuth(),
     restartOnAuthFail: true,
     session: sessionCfg,
     puppeteer: {
@@ -85,6 +81,30 @@ const createSession = function(id, description, token) {
     },
   });
 
+  // const authStrategy = new LegacySessionAuth({
+  //   session: sessionCfg,
+  //   restartOnAuthFail: false
+  // })
+
+  // const client = new Client({
+  //   authStrategy: authStrategy,
+  //   restartOnAuthFail: true,
+  //   session: sessionCfg,
+  //   puppeteer: {
+  //     headless: true,
+  //     args: [
+  //       '--no-sandbox',
+  //       '--disable-setuid-sandbox',
+  //       '--disable-dev-shm-usage',
+  //       '--disable-accelerated-2d-canvas',
+  //       '--no-first-run',
+  //       '--no-zygote',
+  //       '--single-process', // <- this one doesn't works in Windows
+  //       '--disable-gpu'
+  //     ],
+  //   },
+  // });
+
   client.initialize();
 
   client.on('message', msg => {
@@ -95,7 +115,7 @@ const createSession = function(id, description, token) {
     } else if (msg.body == '!groups') {
       client.getChats().then(chats => {
         const groups = chats.filter(chat => chat.isGroup);
-  
+
         if (groups.length == 0) {
           msg.reply('You have no group yet.');
         } else {
@@ -109,7 +129,7 @@ const createSession = function(id, description, token) {
       });
     }
   });
-  
+
 
   client.on('qr', (qr) => {
     console.log('QR RECEIVED', qr);
@@ -133,23 +153,23 @@ const createSession = function(id, description, token) {
     io.emit('authenticated', { id: id });
     io.emit('message', { id: id, text: 'Whatsapp is authenticated!' });
     sessionCfg = session;
-    fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function(err) {
+    fs.writeFile(SESSION_FILE_PATH, JSON.stringify(session), function (err) {
       if (err) {
         console.error(err);
       }
     });
   });
 
-  client.on('auth_failure', function(session) {
+  client.on('auth_failure', function (session) {
     io.emit('message', { id: id, text: 'Auth failure, restarting...' });
   });
 
   client.on('disconnected', (reason) => {
     io.emit('message', { id: id, text: 'Whatsapp is disconnected!' });
-  
+
     try {
-      fs.unlinkSync(SESSION_FILE_PATH, function(err) {
-        if(err) {
+      fs.unlinkSync(SESSION_FILE_PATH, function (err) {
+        if (err) {
           console.log(err)
         };
         console.log('Session file deleted!');
@@ -157,7 +177,7 @@ const createSession = function(id, description, token) {
     } catch (error) {
       console.log(`gagal menghapus file whatsapp-session-${id}.json`);
     }
-    
+
     client.destroy();
     client.initialize();
 
@@ -191,12 +211,12 @@ const createSession = function(id, description, token) {
   }
 }
 
-const removeSession = function(id, token) {
+const removeSession = function (id, token) {
   if (token === SECRET_TOKEN) {
     const SESSION_FILE_PATH = `./whatsapp-session-${id}.json`;
     try {
-      fs.unlinkSync(SESSION_FILE_PATH, function(err) {
-        if(err) {
+      fs.unlinkSync(SESSION_FILE_PATH, function (err) {
+        if (err) {
           console.log(err)
         };
         console.log('Session file deleted!');
@@ -204,7 +224,7 @@ const removeSession = function(id, token) {
     } catch (error) {
       console.log(`gagal menghapus file whatsapp-session-${id}.json`);
     }
-    
+
 
     // Menghapus pada file sessions
     const savedSessions = getSessionsFile();
@@ -212,14 +232,14 @@ const removeSession = function(id, token) {
     savedSessions.splice(sessionIndex, 1);
     setSessionsFile(savedSessions);
 
-    io.emit('remove-session', {id: id, status: true, message: 'success'});
+    io.emit('remove-session', { id: id, status: true, message: 'success' });
   } else {
-    io.emit('remove-session', {id: id, status: false, message: 'failed'});
+    io.emit('remove-session', { id: id, status: false, message: 'failed' });
     console.log('Invalid token nih');
   }
 }
 
-const init = function(socket) {
+const init = function (socket) {
   const savedSessions = getSessionsFile();
 
   if (savedSessions.length > 0) {
@@ -236,24 +256,24 @@ const init = function(socket) {
 init();
 
 // Socket IO
-io.on('connection', function(socket) {
+io.on('connection', function (socket) {
   init(socket);
 
-  socket.on('create-session', function(data) {
+  socket.on('create-session', function (data) {
     console.log('Create session: ' + data.id);
     if (data.token === SECRET_TOKEN) {
-      createSession(data.id, data.description, data.token); 
+      createSession(data.id, data.description, data.token);
     } else {
       console.log('Invalid create session');
     }
   });
 
-  socket.on('delete-session', function(data) {
+  socket.on('delete-session', function (data) {
     console.log('Delete session: ' + data.id);
     if (data.token === SECRET_TOKEN) {
-      removeSession(data.id, data.token); 
+      removeSession(data.id, data.token);
     } else {
-      io.emit('remove-session', {id: data.id, status: false, message: 'failed'});
+      io.emit('remove-session', { id: data.id, status: false, message: 'failed' });
       console.log('invalid delete session');
     }
   })
@@ -303,14 +323,14 @@ io.on('connection', function(socket) {
 // });
 
 // Send message
-app.post('/send-message',async (req, res) => {
+app.post('/send-message', async (req, res) => {
   const token = req.header('x-token');
 
   if (token !== SECRET_TOKEN) {
     return res.status(401).json({
       status: false,
       message: 'Unauthenticated'
-    })  
+    })
   }
 
   const sender = req.body.sender;
@@ -320,7 +340,7 @@ app.post('/send-message',async (req, res) => {
   const client = await sessions.find(sess => sess.id === sender).client;
   console.log("client object => ", client);
 
-  const checkRegisteredNumber = async function(number) {
+  const checkRegisteredNumber = async function (number) {
     const isRegistered = await client.isRegisteredUser(number);
     return isRegistered;
   }
@@ -377,7 +397,7 @@ app.post('/send-message',async (req, res) => {
 //   data.forEach(async (item) => {
 //     const number = phoneNumberFormatter(item.number)
 //     const isRegisteredNumber = await checkRegisteredNumber(number);
-  
+
 //     if (!isRegisteredNumber) {
 //       numberNotRegister++;
 //     } else {
@@ -415,7 +435,7 @@ app.post('/send-media', async (req, res) => {
     return res.status(401).json({
       status: false,
       message: 'Unauthenticated'
-    })  
+    })
   }
 
   const sender = req.body.sender;
@@ -437,7 +457,7 @@ app.post('/send-media', async (req, res) => {
   const media = new MessageMedia(mimetype, attachment, 'Media');
   const client = sessions.find(sess => sess.id == sender).client;
 
-  const checkRegisteredNumber = async function(number) {
+  const checkRegisteredNumber = async function (number) {
     const isRegistered = await client.isRegisteredUser(number);
     return isRegistered;
   }
@@ -468,6 +488,6 @@ app.post('/send-media', async (req, res) => {
   });
 });
 
-server.listen(port, function() {
+server.listen(port, function () {
   console.log('App running on *: ' + port);
 });
